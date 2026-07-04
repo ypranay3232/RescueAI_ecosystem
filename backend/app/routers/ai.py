@@ -44,3 +44,18 @@ async def classify_risk(req: ScenarioRequest):
 async def search_zone(req: AircraftSearchRequest):
     data = req.model_dump()
     return await ai_service.predict_search_zone(data)
+
+
+class EvacuationPlanRequest(BaseModel):
+    disaster_type: str
+    latitude: float
+    longitude: float
+    severity: str
+    impact_radius_km: float
+    resources: list = Field(default_factory=list)
+
+
+@router.post("/evacuation-plan")
+async def evacuation_plan(req: EvacuationPlanRequest):
+    return await ai_service.generate_evacuation_plan(req.model_dump())
+
