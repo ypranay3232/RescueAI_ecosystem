@@ -118,14 +118,17 @@ export function useSurvivorWebSocket() {
       const wsUrl = apiUrl.replace("http", "ws") + "/api/ws/survivors";
       console.log("Connecting to WebSocket:", wsUrl);
       const ws = new WebSocket(wsUrl);
+      wsRef.current = ws;
       
       ws.onopen = () => {
+        if (ws !== wsRef.current) return;
         setIsConnected(true);
         setError(null);
         console.log("WebSocket connected");
       };
 
       ws.onmessage = (event) => {
+        if (ws !== wsRef.current) return;
         try {
           const message: WebSocketMessage = JSON.parse(event.data);
           
@@ -139,11 +142,13 @@ export function useSurvivorWebSocket() {
       };
 
       ws.onerror = (event) => {
+        if (ws !== wsRef.current) return;
         console.error("WebSocket error:", event);
         setError("Connection error");
       };
 
       ws.onclose = () => {
+        if (ws !== wsRef.current) return;
         setIsConnected(false);
         console.log("WebSocket disconnected");
         
@@ -165,8 +170,6 @@ export function useSurvivorWebSocket() {
           connect();
         }, 10000);
       };
-
-      wsRef.current = ws;
     } catch (err) {
       console.error("Failed to create WebSocket connection:", err);
       setError("Failed to connect");
