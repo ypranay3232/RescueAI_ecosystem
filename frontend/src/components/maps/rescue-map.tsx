@@ -73,6 +73,10 @@ export interface RescueMapProps {
   emergencyServices?: EmergencyService[];
   onPingService?: (service: EmergencyService) => void;
   tileStyle?: MapTileStyle;
+  drones?: any[];
+  baseStation?: any;
+  meshLinks?: any[];
+  paths?: any;
 }
 
 const MapInner = dynamic(() => import("./map-inner").then((m) => m.MapInner), {

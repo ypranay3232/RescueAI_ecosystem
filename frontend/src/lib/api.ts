@@ -90,6 +90,16 @@ export const api = {
 
   evacuationPlan: (data: Record<string, unknown>) =>
     request<EvacuationPlanResponse>("/api/ai/evacuation-plan", { method: "POST", body: JSON.stringify(data) }),
+
+  obstacles: () => request<any[]>("/api/obstacles"),
+
+  planRoute: (start: [number, number], end: [number, number]) =>
+    request<any>("/api/route/plan", {
+      method: "POST",
+      body: JSON.stringify({ start, end }),
+    }),
+
+  triageList: () => request<any[]>("/api/resources/triage"),
 };
 
 export interface VisionAnalysis {

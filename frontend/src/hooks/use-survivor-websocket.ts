@@ -65,10 +65,18 @@ export interface WebSocketMessage {
   type: "initial" | "update";
   timestamp?: string;
   survivors: SurvivorData[];
+  drones?: any[];
+  base_station?: any;
+  mesh_links?: any[];
+  paths?: any;
 }
 
 export function useSurvivorWebSocket() {
   const [survivors, setSurvivors] = useState<SurvivorData[]>([]);
+  const [drones, setDrones] = useState<any[]>([]);
+  const [baseStation, setBaseStation] = useState<any>(null);
+  const [meshLinks, setMeshLinks] = useState<any[]>([]);
+  const [paths, setPaths] = useState<any>({});
   const [isConnected, setIsConnected] = useState(false);
   const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -134,6 +142,10 @@ export function useSurvivorWebSocket() {
           
           if (message.type === "initial" || message.type === "update") {
             setSurvivors(message.survivors);
+            if (message.drones) setDrones(message.drones);
+            if (message.base_station) setBaseStation(message.base_station);
+            if (message.mesh_links) setMeshLinks(message.mesh_links);
+            if (message.paths) setPaths(message.paths);
             setLastUpdate(new Date());
           }
         } catch (err) {
@@ -216,6 +228,10 @@ export function useSurvivorWebSocket() {
 
   return {
     survivors,
+    drones,
+    baseStation,
+    meshLinks,
+    paths,
     isConnected,
     lastUpdate,
     error,

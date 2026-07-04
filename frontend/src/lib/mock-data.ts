@@ -149,4 +149,5 @@ export const NAV_ITEMS = [
   { href: "/wearables", label: "Wearables", icon: "HeartPulse" },
   { href: "/planner", label: "AI Planner", icon: "Brain" },
   { href: "/resources", label: "Resources", icon: "Truck" },
+  { href: "/routing", label: "Tactical Routing", icon: "Navigation" },
 ];

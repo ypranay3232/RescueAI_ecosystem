@@ -81,3 +81,70 @@ async def reset_resources():
     resources_state["updated_at"] = datetime.now(timezone.utc).isoformat()
     return {"status": "success", "resources": resources_state}
 
+
+@router.get("/triage")
+async def get_triage_list():
+    """Calculate and return survivor triage priorities sorted by Injury Severity Index (ISI)"""
+    from app.routers.wearables import survivors
+    triage_results = []
+    
+    for s in survivors:
+        score = 0
+        # Heart rate contributions
+        if s.heart_rate > 140 or s.heart_rate < 50:
+            score += 30
+        elif s.heart_rate > 120 or s.heart_rate < 60:
+            score += 12
+            
+        # Oxygen saturation contributions (SpO2 is highly critical)
+        if s.oxygen_saturation < 90:
+            score += 40
+        elif s.oxygen_saturation < 95:
+            score += 18
+            
+        # Temperature contributions
+        if s.temperature > 39.0 or s.temperature < 35.5:
+            score += 20
+        elif s.temperature > 37.8 or s.temperature < 36.0:
+            score += 8
+            
+        # Stress & Panic contributions
+        if s.panic_button_pressed:
+            score += 25
+        if s.stress_level > 80:
+            score += 10
+            
+        isi = min(100, score)
+        
+        # Color categorisation
+        if isi >= 55:
+            color = "red"
+            label = "Immediate"
+        elif isi >= 25:
+            color = "yellow"
+            label = "Delayed"
+        else:
+            color = "green"
+            label = "Minor"
+            
+        triage_results.append({
+            "id": s.id,
+            "name": s.name,
+            "lat": s.lat,
+            "lng": s.lng,
+            "isi": isi,
+            "category": color,
+            "label": label,
+            "vitals": {
+                "heart_rate": s.heart_rate,
+                "oxygen_saturation": s.oxygen_saturation,
+                "temperature": s.temperature,
+                "panic": s.panic_button_pressed
+            }
+        })
+        
+    # Sort survivors by ISI descending
+    triage_results.sort(key=lambda x: x["isi"], reverse=True)
+    return triage_results
+
+
