@@ -25,7 +25,7 @@ interface ActiveDispatch {
 }
 
 export default function WearablesPage() {
-  const { survivors, isConnected, lastUpdate, error, triggerPanic } = useSurvivorWebSocket();
+  const { survivors, drones, baseStation, meshLinks, paths, isConnected, lastUpdate, error, triggerPanic } = useSurvivorWebSocket();
   const [activeDispatches, setActiveDispatches] = useState<ActiveDispatch[]>([]);
   const [activeRoutes, setActiveRoutes] = useState<DroneRoute[]>([]);
   const activeDispatchesRef = useRef<Record<string, boolean>>({});
@@ -444,6 +444,64 @@ export default function WearablesPage() {
                 onPanicTrigger={handlePanicTrigger}
               />
             ))}
+
+            <Card className="border-border/60">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-semibold flex items-center gap-1.5 text-cyan-400">
+                  <Wifi className="h-4 w-4" /> Mesh Network Relays
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3 pt-2 text-xs">
+                <div className="flex items-center justify-between border-b pb-2">
+                  <span className="text-muted-foreground">Gateway Station:</span>
+                  <span className="font-semibold text-purple-400">📡 Command Center</span>
+                </div>
+                <div className="space-y-2">
+                  <div className="text-muted-foreground font-medium mb-1">Active Aerial Relays:</div>
+                  {drones && drones.map(d => (
+                    <div key={d.id} className="flex items-center justify-between bg-muted/40 p-2 rounded border">
+                      <span className="font-medium text-cyan-400 flex items-center gap-1">🛸 {d.name}</span>
+                      <span className="text-[10px] text-muted-foreground uppercase font-mono">Relay Active</span>
+                    </div>
+                  ))}
+                </div>
+                <div className="space-y-2 border-t pt-3">
+                  <div className="text-muted-foreground font-medium mb-1">Survivor Hop Paths:</div>
+                  {survivors.map(s => {
+                    const path = paths[s.id] || [];
+                    const isConnectedToBase = path.includes("BASE");
+                    return (
+                      <div key={s.id} className="space-y-1 p-2 rounded bg-muted/20 border border-border/20">
+                        <div className="flex items-center justify-between">
+                          <span className="font-semibold">{s.name}</span>
+                          <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${isConnectedToBase ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20" : "bg-red-500/10 text-red-400 border border-red-500/20"}`}>
+                            {isConnectedToBase ? `${path.length - 1} Hops` : "Disconnected"}
+                          </span>
+                        </div>
+                        {isConnectedToBase && (
+                          <div className="text-[10px] text-muted-foreground font-mono mt-1 flex items-center gap-1">
+                            {path.map((node: string, idx: number) => {
+                              const isLast = idx === path.length - 1;
+                              const isDrone = node.startsWith("D");
+                              const isBase = node === "BASE";
+                              let display = node;
+                              if (isBase) display = "Base";
+                              else if (isDrone) display = `Drone ${node.substring(1)}`;
+                              return (
+                                <span key={idx} className="flex items-center gap-0.5">
+                                  <span>{display}</span>
+                                  {!isLast && <span className="text-cyan-500 font-bold">&rarr;</span>}
+                                </span>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </CardContent>
+            </Card>
           </div>
           <div className="lg:col-span-2 space-y-6">
             {/* Auto-Dispatch Monitor Panel */}
@@ -574,7 +632,7 @@ export default function WearablesPage() {
                 </div>
               </CardHeader>
               <CardContent className="p-0">
-                <RescueMap survivors={mapSurvivors} routes={activeRoutes} height="600px" />
+                <RescueMap survivors={mapSurvivors} routes={activeRoutes} drones={drones} baseStation={baseStation} meshLinks={meshLinks} paths={paths} height="600px" />
               </CardContent>
             </Card>
           </div>

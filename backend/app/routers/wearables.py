@@ -227,6 +227,77 @@ survivors = [
     SurvivorData("W5", "Survivor Echo", 34.162, -118.238, "yellow"),
 ]
 
+drones = [
+    {"id": "D1", "name": "Drone Alpha", "lat": 34.155, "lng": -118.240, "status": "active"},
+    {"id": "D2", "name": "Drone Beta", "lat": 34.160, "lng": -118.255, "status": "active"},
+]
+
+base_station = {
+    "id": "BASE",
+    "name": "Command Center",
+    "lat": 34.150,
+    "lng": -118.250,
+    "status": "gateway"
+}
+
+def calculate_mesh():
+    # Update drone positions slightly (drift/fly simulation)
+    for d in drones:
+        d["lat"] += random.uniform(-0.00015, 0.00015)
+        d["lng"] += random.uniform(-0.00015, 0.00015)
+    
+    # List of all nodes with coordinates
+    all_nodes = {}
+    for s in survivors:
+        all_nodes[s.id] = {"lat": s.lat, "lng": s.lng, "type": "survivor", "name": s.name}
+    for d in drones:
+        all_nodes[d["id"]] = {"lat": d["lat"], "lng": d["lng"], "type": "drone", "name": d["name"]}
+    all_nodes[base_station["id"]] = {"lat": base_station["lat"], "lng": base_station["lng"], "type": "base", "name": base_station["name"]}
+    
+    # Calculate connections based on distance threshold
+    # 0.012 degrees threshold (~1.3km) for local link
+    THRESHOLD = 0.012
+    links = []
+    adj = {node_id: [] for node_id in all_nodes}
+    
+    node_ids = list(all_nodes.keys())
+    for i in range(len(node_ids)):
+        for j in range(i + 1, len(node_ids)):
+            id1, id2 = node_ids[i], node_ids[j]
+            n1, n2 = all_nodes[id1], all_nodes[id2]
+            dist = math.sqrt((n1["lat"] - n2["lat"])**2 + (n1["lng"] - n2["lng"])**2)
+            if dist <= THRESHOLD:
+                quality = int((1.0 - (dist / THRESHOLD)) * 100)
+                quality = max(10, min(100, quality))
+                links.append({
+                    "from": id1,
+                    "to": id2,
+                    "distance": round(dist * 111, 2), # km approx
+                    "quality": quality
+                })
+                adj[id1].append(id2)
+                adj[id2].append(id1)
+                
+    # BFS to find shortest path to BASE
+    paths = {}
+    queue = [["BASE"]]
+    visited = {"BASE"}
+    while queue:
+        path = queue.pop(0)
+        curr = path[-1]
+        paths[curr] = path[::-1] # Path from curr to BASE (e.g. ['W1', 'D1', 'BASE'])
+        for neighbor in adj[curr]:
+            if neighbor not in visited:
+                visited.add(neighbor)
+                queue.append(path + [neighbor])
+                
+    # For nodes that have no path to BASE, their path is just [node_id]
+    for node_id in all_nodes:
+        if node_id not in paths:
+            paths[node_id] = [node_id]
+            
+    return list(drones), base_station, links, paths
+
 
 class ConnectionManager:
     """Manage WebSocket connections for real-time updates"""
@@ -239,7 +310,8 @@ class ConnectionManager:
         self.active_connections.append(websocket)
 
     def disconnect(self, websocket: WebSocket):
-        self.active_connections.remove(websocket)
+        if websocket in self.active_connections:
+            self.active_connections.remove(websocket)
 
     async def broadcast(self, message: dict):
         """Broadcast message to all connected clients"""
@@ -290,16 +362,24 @@ async def survivor_websocket(websocket: WebSocket):
     await manager.connect(websocket)
     
     try:
+        # Calculate initial mesh network
+        init_drones, init_base, init_links, init_paths = calculate_mesh()
         # Send initial data
         initial_data = {
             "type": "initial",
-            "survivors": [survivor.to_dict() for survivor in survivors]
+            "survivors": [survivor.to_dict() for survivor in survivors],
+            "drones": init_drones,
+            "base_station": init_base,
+            "mesh_links": init_links,
+            "paths": init_paths
         }
         await websocket.send_json(initial_data)
         
         # Stream updates every 2 seconds
         while True:
             await asyncio.sleep(2)
+            if websocket not in manager.active_connections:
+                break
             
             # Update all survivors
             updated_survivors = []
@@ -307,11 +387,18 @@ async def survivor_websocket(websocket: WebSocket):
                 updated_data = survivor.update_vitals()
                 updated_survivors.append(updated_data)
             
+            # Calculate updated mesh network topology
+            curr_drones, curr_base, curr_links, curr_paths = calculate_mesh()
+            
             # Send update
             update_message = {
                 "type": "update",
                 "timestamp": datetime.now().isoformat(),
-                "survivors": updated_survivors
+                "survivors": updated_survivors,
+                "drones": curr_drones,
+                "base_station": curr_base,
+                "mesh_links": curr_links,
+                "paths": curr_paths
             }
             
             await websocket.send_json(update_message)

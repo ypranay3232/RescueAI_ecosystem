@@ -65,6 +65,14 @@ const EXTRA_CSS = `
 @keyframes dashMove {
   to { stroke-dashoffset: -32; }
 }
+/* animated dash on mesh connections */
+.mesh-line {
+  stroke-dasharray: 6 6;
+  animation: meshMove 1s linear infinite;
+}
+@keyframes meshMove {
+  to { stroke-dashoffset: -24; }
+}
 /* leaflet popup dark theme */
 .rescue-popup .leaflet-popup-content-wrapper {
   background: #0f172a;
@@ -193,6 +201,10 @@ export function MapInner({
   emergencyServices = [],
   onPingService,
   tileStyle = "dark",
+  drones = [],
+  baseStation = null,
+  meshLinks = [],
+  paths = {},
 }: RescueMapProps) {
   const containerRef       = useRef<HTMLDivElement>(null);
   const mapRef             = useRef<L.Map | null>(null);
@@ -325,6 +337,82 @@ export function MapInner({
         .addTo(map);
     });
 
+    // ─── base station & drones ───────────────────────────────────────────────
+    if (baseStation) {
+      const color = "#a855f7"; // purple for base station
+      const icon = L.divIcon({
+        className: "",
+        html: `<div style="position:relative;width:30px;height:30px;display:flex;align-items:center;justify-content:center;">
+          <div style="position:absolute;inset:-4px;border:2px solid ${color};border-radius:50%;opacity:0.4;"></div>
+          <div style="background:${color};width:16px;height:16px;border-radius:50%;border:2.5px solid white;box-shadow:0 0 8px ${color};"></div>
+          <span style="position:absolute;font-size:10px;top:-18px;background:#0f172a;color:#f1f5f9;border:1px solid #334155;border-radius:4px;padding:2px 4px;white-space:nowrap;font-weight:bold;z-index:9999;">📡 BASE</span>
+        </div>`,
+        iconSize: [30, 30],
+        iconAnchor: [15, 15],
+      });
+      layers.push(L.marker([baseStation.lat, baseStation.lng], { icon })
+        .bindPopup(`<strong>${baseStation.name}</strong><br/>Status: Mesh Gateway`)
+        .addTo(map));
+    }
+
+    if (drones && drones.length > 0) {
+      drones.forEach((d) => {
+        const color = "#06b6d4"; // cyan for drones
+        const icon = L.divIcon({
+          className: "",
+          html: `<div style="position:relative;width:28px;height:28px;display:flex;align-items:center;justify-content:center;">
+            <div style="position:absolute;inset:-3px;border:1.5px solid ${color};border-radius:50%;opacity:0.5;"></div>
+            <div style="background:${color};width:14px;height:14px;border-radius:50%;border:2px solid white;box-shadow:0 0 6px ${color};"></div>
+            <span style="position:absolute;font-size:9px;top:-16px;background:#0f172a;color:#f1f5f9;border:1px solid #334155;border-radius:4px;padding:1px 3px;white-space:nowrap;font-weight:bold;z-index:9999;">🛸 ${d.name}</span>
+          </div>`,
+          iconSize: [28, 28],
+          iconAnchor: [14, 14],
+        });
+        layers.push(L.marker([d.lat, d.lng], { icon })
+          .bindPopup(`<strong>${d.name}</strong><br/>Status: Relay Node`)
+          .addTo(map));
+      });
+    }
+
+    // ─── mesh link connection lines ──────────────────────────────────────────
+    const nodeCoords: Record<string, [number, number]> = {};
+    survivors.forEach((s) => {
+      nodeCoords[s.id] = [s.lat, s.lng];
+    });
+    if (drones) {
+      drones.forEach((d) => {
+        nodeCoords[d.id] = [d.lat, d.lng];
+      });
+    }
+    if (baseStation) {
+      nodeCoords[baseStation.id] = [baseStation.lat, baseStation.lng];
+    }
+
+    if (meshLinks && meshLinks.length > 0) {
+      meshLinks.forEach((link) => {
+        const p1 = nodeCoords[link.from];
+        const p2 = nodeCoords[link.to];
+        if (p1 && p2) {
+          const color = link.quality > 70 ? "#10b981" : link.quality > 40 ? "#eab308" : "#ef4444";
+          
+          // Draw standard faint line underneath
+          layers.push(L.polyline([p1, p2], {
+            color: color,
+            weight: 2,
+            opacity: 0.25,
+          }).addTo(map));
+          
+          // Draw animated dashed overlay line
+          layers.push(L.polyline([p1, p2], {
+            color: color,
+            weight: 2,
+            opacity: 0.8,
+            className: "mesh-line",
+          }).bindTooltip(`${link.quality}% Signal Quality`, { sticky: true }).addTo(map));
+        }
+      });
+    }
+
     markers.forEach((m) => {
       if (m.label === "Current Position") return;
       if (m.label === "Intermediate Stop" || m.label === "Crash Incident") {
@@ -363,7 +451,7 @@ export function MapInner({
     });
 
     return () => { layers.forEach((l) => { try { map.removeLayer(l); } catch {} }); };
-  }, [searchZone, routes, survivors, showHeatmap, crashScenarios, markers]);
+  }, [searchZone, routes, survivors, showHeatmap, crashScenarios, markers, drones, baseStation, meshLinks]);
 
   // ── crash-location preview ──────────────────────────────────────────────────
   useEffect(() => {
