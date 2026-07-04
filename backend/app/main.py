@@ -4,7 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from app.config import settings
-from app.routers import ai, resources, vision, weather
+from app.routers import ai, resources, vision, weather, wearables
 
 app = FastAPI(
     title="RescueAI ecosystem API",
@@ -34,6 +34,7 @@ app.include_router(ai.router, prefix="/api")
 app.include_router(vision.router, prefix="/api")
 app.include_router(weather.router, prefix="/api")
 app.include_router(resources.router, prefix="/api")
+app.include_router(wearables.router, prefix="/api")
 
 
 @app.get("/api/health")

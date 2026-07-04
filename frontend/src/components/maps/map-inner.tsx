@@ -309,10 +309,16 @@ export function MapInner({
 
     survivors.forEach((s) => {
       const color = s.status === "red" ? "#ef4444" : s.status === "yellow" ? "#eab308" : "#22c55e";
+      const isRed = s.status === "red";
+      const ringHtml = isRed ? `<div style="position:absolute;inset:-6px;border:2px dashed #ef4444;border-radius:50%;animation:crashRing 1.5s ease-out infinite;"></div>` : "";
       const icon = L.divIcon({
         className: "",
-        html: `<div style="background:${color};width:12px;height:12px;border-radius:50%;border:2px solid white;box-shadow:0 0 6px ${color}"></div>`,
-        iconSize: [12, 12],
+        html: `<div style="position:relative;width:24px;height:24px;display:flex;align-items:center;justify-content:center;">
+          ${ringHtml}
+          <div style="background:${color};width:12px;height:12px;border-radius:50%;border:2px solid white;box-shadow:0 0 6px ${color};${isRed ? 'animation:crashPulse 1.5s ease-in-out infinite;' : ''}"></div>
+        </div>`,
+        iconSize: [24, 24],
+        iconAnchor: [12, 12],
       });
       L.marker([s.lat, s.lng], { icon })
         .bindPopup(`<strong>${s.name}</strong><br/>HR: ${s.heartRate} bpm<br/>Temp: ${s.temperature}°C`)
