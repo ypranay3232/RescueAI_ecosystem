@@ -250,8 +250,32 @@ copy .env.local.example .env.local
 
 ### Branching Strategy
 
+This project uses a two-branch workflow:
+
+- **`main`** - Production-ready, stable code. Only merge tested features here.
+- **`hackathon`** - Active development branch for hackathon work and experimentation.
+
 ```bash
-# Create a new branch for your feature
+# Switch to hackathon branch for development
+git checkout hackathon
+
+# Make changes and commit
+git add .
+git commit -m "Add your feature"
+
+# Push to GitHub
+git push origin hackathon
+
+# When ready to deploy to production:
+git checkout main
+git merge hackathon
+git push origin main
+```
+
+**For feature branches during hackathon:**
+```bash
+# Create a feature branch from hackathon
+git checkout hackathon
 git checkout -b feature/your-feature-name
 
 # Make changes and commit
@@ -261,7 +285,9 @@ git commit -m "Add your feature"
 # Push to GitHub
 git push origin feature/your-feature-name
 
-# Create pull request on GitHub for review
+# Merge back to hackathon when done
+git checkout hackathon
+git merge feature/your-feature-name
 ```
 
 ## License
