@@ -70,6 +70,23 @@ export const api = {
     request<WeatherData>(`/api/weather?lat=${lat}&lng=${lng}`),
 
   resources: () => request<ResourcesData>("/api/resources"),
+
+  dispatchResource: (data: {
+    resource_id: string;
+    resource_type: string;
+    status: string;
+    location: string;
+    eta_min?: number;
+  }) =>
+    request<{ status: string; resources: ResourcesData }>("/api/resources/dispatch", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+
+  resetResources: () =>
+    request<{ status: string; resources: ResourcesData }>("/api/resources/reset", {
+      method: "POST",
+    }),
 };
 
 export interface VisionAnalysis {
