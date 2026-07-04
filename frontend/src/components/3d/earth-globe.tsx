@@ -1,16 +1,21 @@
-// @ts-nocheck
 "use client";
 
-/// <reference types="@react-three/fiber" />
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-import type { ThreeElements } from "@react-three/fiber";
-import { useRef, useEffect, useMemo, Suspense } from "react";
-import { Canvas, useFrame, useThree } from "@react-three/fiber";
-import { Sphere, Stars, Line, Html } from "@react-three/drei";
+import { useEffect, useRef } from "react";
 import * as THREE from "three";
-import { gsap } from "gsap";
 
-// ─── helpers ─────────────────────────────────────────────────────────────────
+export interface EarthGlobeProps {
+  className?: string;
+  height?: string;
+  startLat?: number;
+  startLng?: number;
+  endLat?:   number;
+  endLng?:   number;
+  crashLat?: number;
+  crashLng?: number;
+  flightProgress: number; // 0-1
+  signalLost: boolean;
+  onCrashZoomDone?: () => void;
+}
 
 /** Convert lat/lng (degrees) to a 3D point on a unit sphere of radius r */
 function latLngToVec3(lat: number, lng: number, r = 1): THREE.Vector3 {
@@ -45,250 +50,282 @@ function buildArc(
   return points;
 }
 
-// ─── sub-components ───────────────────────────────────────────────────────────
-
-interface GlobeProps {
-  startLat?: number;
-  startLng?: number;
-  endLat?:   number;
-  endLng?:   number;
-  crashLat?: number;
-  crashLng?: number;
-  flightProgress: number; // 0-1
-  signalLost: boolean;
-  onCrashZoomDone?: () => void;
-}
-
-function GlobeScene({
+export function EarthGlobe({
+  className = "",
+  height = "400px",
   startLat = 40.641, startLng = -73.778,
   endLat   = 51.477, endLng  = -0.461,
   crashLat, crashLng,
   flightProgress,
   signalLost,
-  onCrashZoomDone,
-}: GlobeProps) {
-  const globeRef    = useRef<THREE.Mesh>(null);
-  const atmRef      = useRef<THREE.Mesh>(null);
-  const planeRef    = useRef<THREE.Mesh>(null);
-  const crashRef    = useRef<THREE.Mesh>(null);
-  const groupRef    = useRef<THREE.Group>(null);
-  const { camera }  = useThree();
-
-  const arcPoints = useMemo(
-    () => buildArc(startLat, startLng, endLat, endLng),
-    [startLat, startLng, endLat, endLng]
-  );
-
-  // Crash position
-  const crashPos = useMemo(() => {
-    if (crashLat != null && crashLng != null)
-      return latLngToVec3(crashLat, crashLng, 1.015);
-    return null;
-  }, [crashLat, crashLng]);
-
-  // Plane position along arc
-  const planePos = useMemo(() => {
-    const idx = Math.min(
-      Math.floor(flightProgress * (arcPoints.length - 1)),
-      arcPoints.length - 1
-    );
-    return arcPoints[idx];
-  }, [flightProgress, arcPoints]);
-
-  // Auto-rotate globe
-  useFrame((_, delta) => {
-    if (!globeRef.current || signalLost) return;
-    globeRef.current.rotation.y += delta * 0.06;
-    if (atmRef.current) atmRef.current.rotation.y += delta * 0.06;
-  });
-
-  // Pulse crash marker
-  useFrame(({ clock }) => {
-    if (!crashRef.current) return;
-    const s = 1 + 0.3 * Math.sin(clock.getElapsedTime() * 4);
-    crashRef.current.scale.setScalar(s);
-  });
-
-  // Camera zoom-in to crash site on signal loss
+  onCrashZoomDone
+}: EarthGlobeProps) {
+  const mountRef = useRef<HTMLDivElement>(null);
+  
+  // Refs to share updates with the animation loop
+  const propsRef = useRef({ flightProgress, signalLost, crashLat, crashLng });
   useEffect(() => {
-    if (!signalLost || !crashLat || !crashLng) return;
-    const target = latLngToVec3(crashLat, crashLng, 2.8);
+    propsRef.current = { flightProgress, signalLost, crashLat, crashLng };
+  }, [flightProgress, signalLost, crashLat, crashLng]);
 
-    gsap.to(camera.position, {
-      x: target.x, y: target.y, z: target.z,
-      duration: 2.4,
-      ease: "power3.inOut",
-      onComplete: () => onCrashZoomDone?.(),
+  useEffect(() => {
+    const container = mountRef.current;
+    if (!container) return;
+
+    const width = container.clientWidth;
+    const heightVal = container.clientHeight || 400;
+
+    // 1. Scene setup
+    const scene = new THREE.Scene();
+
+    // 2. Camera setup
+    const camera = new THREE.PerspectiveCamera(55, width / heightVal, 0.1, 1000);
+    const initialCamPos = new THREE.Vector3(0, 0.4, 2.8);
+    camera.position.copy(initialCamPos);
+
+    // 3. Renderer setup
+    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    renderer.setSize(width, heightVal);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    container.appendChild(renderer.domElement);
+
+    // 4. Globe and objects creation
+    const globeGroup = new THREE.Group();
+    scene.add(globeGroup);
+
+    // Earth Sphere
+    const earthGeo = new THREE.SphereGeometry(1, 64, 64);
+    const earthMat = new THREE.MeshStandardMaterial({
+      color: 0x0d2340,
+      roughness: 0.8,
+      metalness: 0.1,
     });
-    gsap.to(camera, { fov: 38, duration: 2.4, ease: "power3.inOut",
-      onUpdate: () => (camera as THREE.PerspectiveCamera).updateProjectionMatrix() });
-  }, [signalLost, crashLat, crashLng, camera, onCrashZoomDone]);
+    const earth = new THREE.Mesh(earthGeo, earthMat);
+    globeGroup.add(earth);
 
-  // Reset camera when not lost
-  useEffect(() => {
-    if (signalLost) return;
-    gsap.to(camera.position, { x: 0, y: 0.4, z: 2.8, duration: 1.6, ease: "power2.inOut" });
-    gsap.to(camera, { fov: 55, duration: 1.6, ease: "power2.inOut",
-      onUpdate: () => (camera as THREE.PerspectiveCamera).updateProjectionMatrix() });
-  }, [signalLost, camera]);
+    // Atmosphere Glow Mesh
+    const atmGeo = new THREE.SphereGeometry(1.06, 62, 62);
+    const atmMat = new THREE.MeshStandardMaterial({
+      color: 0x1a4080,
+      transparent: true,
+      opacity: 0.15,
+      side: THREE.BackSide,
+      depthWrite: false,
+    });
+    const atm = new THREE.Mesh(atmGeo, atmMat);
+    globeGroup.add(atm);
 
-  return (
-    <group ref={groupRef}>
-      {/* Stars background */}
-      <Stars radius={100} depth={60} count={4000} factor={3} saturation={0} fade speed={0.4} />
-
-      {/* Atmosphere glow */}
-      <Sphere ref={atmRef} args={[1.06, 64, 64]}>
-        <meshStandardMaterial
-          color="#1a4080"
-          transparent
-          opacity={0.15}
-          side={THREE.BackSide}
-          depthWrite={false}
-        />
-      </Sphere>
-
-      {/* Earth sphere */}
-      <Sphere ref={globeRef} args={[1, 64, 64]}>
-        <meshStandardMaterial
-          color="#0d2340"
-          roughness={0.8}
-          metalness={0.1}
-        />
-      </Sphere>
-
-      {/* Continent dots overlay — procedural */}
-      <ContinentDots />
-
-      {/* Flight arc */}
-      {arcPoints.length > 1 && (
-        <Line
-          points={arcPoints}
-          color={signalLost ? "#ef4444" : "#f97316"}
-          lineWidth={signalLost ? 1.5 : 2.5}
-          dashed={signalLost}
-          dashSize={0.04}
-          gapSize={0.03}
-          transparent
-          opacity={signalLost ? 0.5 : 0.85}
-        />
-      )}
-
-      {/* Departure marker */}
-      <mesh position={latLngToVec3(startLat, startLng, 1.015)}>
-        <sphereGeometry args={[0.014, 8, 8]} />
-        <meshStandardMaterial color="#22c55e" emissive="#22c55e" emissiveIntensity={1} />
-      </mesh>
-
-      {/* Destination marker */}
-      <mesh position={latLngToVec3(endLat, endLng, 1.015)}>
-        <sphereGeometry args={[0.014, 8, 8]} />
-        <meshStandardMaterial color="#6366f1" emissive="#6366f1" emissiveIntensity={1} />
-      </mesh>
-
-      {/* Plane dot */}
-      {flightProgress > 0 && flightProgress < 1 && (
-        <mesh position={planePos}>
-          <sphereGeometry args={[0.018, 8, 8]} />
-          <meshStandardMaterial
-            color="#f97316"
-            emissive="#f97316"
-            emissiveIntensity={2}
-          />
-        </mesh>
-      )}
-
-      {/* Crash marker */}
-      {crashPos && signalLost && (
-        <>
-          <mesh ref={crashRef} position={crashPos}>
-            <sphereGeometry args={[0.022, 8, 8]} />
-            <meshStandardMaterial color="#ef4444" emissive="#ef4444" emissiveIntensity={3} />
-          </mesh>
-          {/* Ring around crash */}
-          <mesh position={crashPos} rotation={[Math.PI / 2, 0, 0]}>
-            <ringGeometry args={[0.035, 0.042, 32]} />
-            <meshBasicMaterial color="#ef4444" transparent opacity={0.6} side={THREE.DoubleSide} />
-          </mesh>
-          <Html position={crashPos} distanceFactor={4} center>
-            <div className="pointer-events-none -translate-y-6 whitespace-nowrap rounded bg-red-900/80 px-2 py-0.5 text-[9px] font-bold uppercase tracking-widest text-red-300 backdrop-blur border border-red-500/40">
-              LKP
-            </div>
-          </Html>
-        </>
-      )}
-
-      {/* Lighting */}
-      <ambientLight intensity={0.3} />
-      <directionalLight position={[4, 3, 4]} intensity={1.4} color="#ffd6a0" />
-      <pointLight position={[-4, -2, -4]} intensity={0.3} color="#3060c0" />
-    </group>
-  );
-}
-
-/** Procedural continent-style dots on the globe surface */
-function ContinentDots() {
-  const points = useMemo(() => {
-    // Seed-based pseudo-random land distribution
-    const pts: THREE.Vector3[] = [];
+    // Procedural Continent Dots
+    const ptCount = 2000;
+    const ptGeo = new THREE.BufferGeometry();
+    const positions = new Float32Array(ptCount * 3);
     const rng = (n: number) => Math.abs(Math.sin(n * 127.1 + 311.7) * 43758.5453) % 1;
-    for (let i = 0; i < 3200; i++) {
+    let validCount = 0;
+
+    for (let i = 0; i < 3200 && validCount < ptCount; i++) {
       const lat = (rng(i * 2)     * 180) - 90;
       const lng = (rng(i * 2 + 1) * 360) - 180;
-      // Rough land mask (very approximate)
+      // Land masking approximation
       const isLand =
-        // Americas
         (lng > -170 && lng < -30 && lat > -60 && lat < 80) ||
-        // Europe / Africa
         (lng > -20 && lng < 60 && lat > -40 && lat < 75) ||
-        // Asia
         (lng > 25 && lng < 150 && lat > 0 && lat < 75) ||
-        // Australia
         (lng > 110 && lng < 155 && lat > -45 && lat < -10);
-      if (!isLand) continue;
-      pts.push(latLngToVec3(lat, lng, 1.004));
+
+      if (isLand) {
+        const v = latLngToVec3(lat, lng, 1.004);
+        positions[validCount * 3]     = v.x;
+        positions[validCount * 3 + 1] = v.y;
+        positions[validCount * 3 + 2] = v.z;
+        validCount++;
+      }
     }
-    return pts;
-  }, []);
 
-  const geo = useMemo(() => {
-    const g = new THREE.BufferGeometry();
-    const arr = new Float32Array(points.length * 3);
-    points.forEach((p, i) => { arr[i*3]=p.x; arr[i*3+1]=p.y; arr[i*3+2]=p.z; });
-    g.setAttribute("position", new THREE.BufferAttribute(arr, 3));
-    return g;
-  }, [points]);
+    ptGeo.setAttribute("position", new THREE.BufferAttribute(positions.subarray(0, validCount * 3), 3));
+    const ptMat = new THREE.PointsMaterial({
+      color: 0x2a6fa8,
+      size: 0.007,
+      sizeAttenuation: true,
+      transparent: true,
+      opacity: 0.8,
+    });
+    const pts = new THREE.Points(ptGeo, ptMat);
+    globeGroup.add(pts);
 
-  return (
-    <points geometry={geo}>
-      <pointsMaterial color="#2a6fa8" size={0.006} sizeAttenuation transparent opacity={0.7} />
-    </points>
-  );
-}
+    // Departure and Destination markers
+    const startPos = latLngToVec3(startLat, startLng, 1.015);
+    const startMarkerGeo = new THREE.SphereGeometry(0.014, 8, 8);
+    const startMarkerMat = new THREE.MeshStandardMaterial({ color: 0x22c55e, emissive: 0x22c55e, emissiveIntensity: 1 });
+    const startMarker = new THREE.Mesh(startMarkerGeo, startMarkerMat);
+    startMarker.position.copy(startPos);
+    globeGroup.add(startMarker);
 
-// ─── exported wrapper ─────────────────────────────────────────────────────────
+    const endPos = latLngToVec3(endLat, endLng, 1.015);
+    const endMarkerGeo = new THREE.SphereGeometry(0.014, 8, 8);
+    const endMarkerMat = new THREE.MeshStandardMaterial({ color: 0x6366f1, emissive: 0x6366f1, emissiveIntensity: 1 });
+    const endMarker = new THREE.Mesh(endMarkerGeo, endMarkerMat);
+    endMarker.position.copy(endPos);
+    globeGroup.add(endMarker);
 
-export interface EarthGlobeProps extends GlobeProps {
-  className?: string;
-  height?: string;
-}
+    // Flight Arc Path
+    const arcPoints = buildArc(startLat, startLng, endLat, endLng);
+    const lineGeo = new THREE.BufferGeometry().setFromPoints(arcPoints);
+    const lineMat = new THREE.LineBasicMaterial({
+      color: 0xf97316,
+      transparent: true,
+      opacity: 0.85,
+    });
+    const flightLine = new THREE.Line(lineGeo, lineMat);
+    globeGroup.add(flightLine);
 
-export function EarthGlobe({ className = "", height = "400px", ...props }: EarthGlobeProps) {
+    // Plane Marker
+    const planeGeo = new THREE.SphereGeometry(0.018, 8, 8);
+    const planeMat = new THREE.MeshStandardMaterial({ color: 0xf97316, emissive: 0xf97316, emissiveIntensity: 2 });
+    const plane = new THREE.Mesh(planeGeo, planeMat);
+    globeGroup.add(plane);
+
+    // Crash LKP Marker (hidden initially)
+    const crashGeo = new THREE.SphereGeometry(0.022, 8, 8);
+    const crashMat = new THREE.MeshStandardMaterial({ color: 0xef4444, emissive: 0xef4444, emissiveIntensity: 3 });
+    const crash = new THREE.Mesh(crashGeo, crashMat);
+    crash.visible = false;
+    globeGroup.add(crash);
+
+    // Crash Ring Indicator
+    const ringGeo = new THREE.RingGeometry(0.035, 0.042, 32);
+    const ringMat = new THREE.MeshBasicMaterial({ color: 0xef4444, transparent: true, opacity: 0.6, side: THREE.DoubleSide });
+    const crashRing = new THREE.Mesh(ringGeo, ringMat);
+    crashRing.visible = false;
+    globeGroup.add(crashRing);
+
+    // 5. Lights
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.45);
+    scene.add(ambientLight);
+
+    const dirLight = new THREE.DirectionalLight(0xffd6a0, 1.4);
+    dirLight.position.set(4, 3, 4);
+    scene.add(dirLight);
+
+    const pointLight = new THREE.PointLight(0x3060c0, 0.6);
+    pointLight.position.set(-4, -2, -4);
+    scene.add(pointLight);
+
+    // 6. Animation parameters and loop
+    let animationId = 0;
+    const clock = new THREE.Clock();
+    
+    // Zoom targets
+    let isZoomDoneCalled = false;
+
+    const animate = () => {
+      animationId = requestAnimationFrame(animate);
+      const delta = clock.getDelta();
+      const elapsed = clock.getElapsedTime();
+      const { flightProgress: progressVal, signalLost: lostVal, crashLat: cLat, crashLng: cLng } = propsRef.current;
+
+      // 1. Globe auto-rotation
+      if (!lostVal) {
+        globeGroup.rotation.y += delta * 0.08;
+        isZoomDoneCalled = false;
+      }
+
+      // 2. Set flight line style/color
+      if (lostVal) {
+        lineMat.color.setHex(0xef4444);
+        lineMat.opacity = 0.55;
+      } else {
+        lineMat.color.setHex(0xf97316);
+        lineMat.opacity = 0.85;
+      }
+
+      // 3. Move Plane dot
+      if (progressVal > 0 && progressVal < 1) {
+        const idx = Math.min(
+          Math.floor(progressVal * (arcPoints.length - 1)),
+          arcPoints.length - 1
+        );
+        plane.position.copy(arcPoints[idx]);
+        plane.visible = !lostVal;
+      } else {
+        plane.visible = false;
+      }
+
+      // 4. Update Crash LKP markers
+      if (lostVal && cLat != null && cLng != null) {
+        const cPos = latLngToVec3(cLat, cLng, 1.015);
+        
+        crash.position.copy(cPos);
+        crash.visible = true;
+        // pulse scale
+        const scaleVal = 1 + 0.3 * Math.sin(elapsed * 5);
+        crash.scale.setScalar(scaleVal);
+
+        crashRing.position.copy(cPos);
+        crashRing.visible = true;
+        
+        // Orient ring to surface normal
+        const normal = cPos.clone().normalize();
+        crashRing.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), normal);
+      } else {
+        crash.visible = false;
+        crashRing.visible = false;
+      }
+
+      // 5. Camera Interpolation (Zoom)
+      if (lostVal && cLat != null && cLng != null) {
+        // Calculate dynamic global coordinates of crash site (taking globe rotation into account)
+        const localPos = latLngToVec3(cLat, cLng, 2.3);
+        const globalPos = localPos.clone().applyMatrix4(globeGroup.matrixWorld);
+
+        // Lerp camera to target
+        camera.position.lerp(globalPos, 0.05);
+        camera.lookAt(earth.position);
+
+        if (camera.position.distanceTo(globalPos) < 0.1 && !isZoomDoneCalled) {
+          isZoomDoneCalled = true;
+          onCrashZoomDone?.();
+        }
+      } else {
+        // Return to default angle
+        camera.position.lerp(initialCamPos, 0.05);
+        camera.lookAt(earth.position);
+      }
+
+      renderer.render(scene, camera);
+    };
+
+    animate();
+
+    // 7. Resize handler
+    const handleResize = () => {
+      if (!container) return;
+      const w = container.clientWidth;
+      const h = container.clientHeight || 400;
+      camera.aspect = w / h;
+      camera.updateProjectionMatrix();
+      renderer.setSize(w, h);
+    };
+
+    window.addEventListener("resize", handleResize);
+
+    return () => {
+      cancelAnimationFrame(animationId);
+      window.removeEventListener("resize", handleResize);
+      if (renderer.domElement && container.contains(renderer.domElement)) {
+        container.removeChild(renderer.domElement);
+      }
+      renderer.dispose();
+    };
+  }, [startLat, startLng, endLat, endLng]);
+
   return (
     <div className={`relative overflow-hidden rounded-2xl ${className}`} style={{ height }}>
       {/* Vignette overlay */}
-      <div className="pointer-events-none absolute inset-0 z-10 rounded-2xl"
+      <div
+        className="pointer-events-none absolute inset-0 z-10 rounded-2xl"
         style={{ background: "radial-gradient(ellipse at center, transparent 55%, oklch(0.08 0.012 265) 100%)" }}
       />
-      <Canvas
-        camera={{ position: [0, 0.4, 2.8], fov: 55 }}
-        gl={{ antialias: true, alpha: true }}
-        style={{ background: "transparent" }}
-      >
-        <Suspense fallback={null}>
-          <GlobeScene {...props} />
-        </Suspense>
-      </Canvas>
+      <div ref={mountRef} className="w-full h-full" style={{ background: "transparent" }} />
     </div>
   );
 }
