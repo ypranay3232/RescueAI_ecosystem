@@ -45,6 +45,20 @@ class AIService:
         )
         return await self.analyze_text(prompt, str(aircraft))
 
+    async def generate_evacuation_plan(self, data: dict[str, Any]) -> dict[str, Any]:
+        prompt = (
+            "You are an emergency response evacuation coordinator AI. "
+            "Given the disaster details and nearby resources (shelters, volunteers, water points, food embankments), "
+            "generate a comprehensive evacuation and resource allocation plan. "
+            "Return JSON with keys: "
+            "summary (string), "
+            "priority_actions (list of {priority (int), action (string), eta_minutes (int), resource (string)}), "
+            "risk_assessment (string), "
+            "volunteer_assignments (list of {volunteer_name (string), task (string), location (string)}), "
+            "supply_distribution (list of {source (string), destination (string), supplies (string)})"
+        )
+        return await self.analyze_text(prompt, str(data))
+
     async def _complete(self, prompt: str, json_mode: bool = True) -> Any:
         if settings.ai_provider == "gemini" and settings.gemini_api_key:
             return await self._gemini_complete(prompt, json_mode)

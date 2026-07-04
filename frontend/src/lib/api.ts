@@ -87,6 +87,9 @@ export const api = {
     request<{ status: string; resources: ResourcesData }>("/api/resources/reset", {
       method: "POST",
     }),
+
+  evacuationPlan: (data: Record<string, unknown>) =>
+    request<EvacuationPlanResponse>("/api/ai/evacuation-plan", { method: "POST", body: JSON.stringify(data) }),
 };
 
 export interface VisionAnalysis {
@@ -124,3 +127,25 @@ export interface ResourcesData {
   supplies: Array<{ item: string; qty: number; status: string }>;
   updated_at: string;
 }
+
+export interface EvacuationPlanResponse {
+  summary?: string;
+  priority_actions?: Array<{
+    priority: number;
+    action: string;
+    eta_minutes: number;
+    resource: string;
+  }>;
+  risk_assessment?: string;
+  volunteer_assignments?: Array<{
+    volunteer_name: string;
+    task: string;
+    location: string;
+  }>;
+  supply_distribution?: Array<{
+    source: string;
+    destination: string;
+    supplies: string;
+  }>;
+}
+
