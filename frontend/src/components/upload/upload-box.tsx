@@ -1,5 +1,4 @@
 "use client";
-
 import { cn } from "@/lib/utils";
 import { Upload, X, ImageIcon } from "lucide-react";
 import { useCallback, useState } from "react";
@@ -12,13 +11,15 @@ interface UploadBoxProps {
   className?: string;
 }
 
-export function UploadBox({ onUpload, accept = "image/*", loading, className }: UploadBoxProps) {
+export function UploadBox({ onUpload, accept = "image/*,video/*", loading, className }: UploadBoxProps) {
   const [preview, setPreview] = useState<string | null>(null);
+  const [fileType, setFileType] = useState<string | null>(null);
   const [dragging, setDragging] = useState(false);
 
   const handleFile = useCallback(
     (file: File) => {
       setPreview(URL.createObjectURL(file));
+      setFileType(file.type);
       onUpload(file);
     },
     [onUpload]
@@ -47,13 +48,20 @@ export function UploadBox({ onUpload, accept = "image/*", loading, className }: 
     >
       {preview ? (
         <div className="relative p-4">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={preview} alt="Upload preview" className="max-h-64 w-full rounded-lg object-cover" />
+          {fileType?.startsWith("video/") ? (
+            <video src={preview} controls className="max-h-64 w-full rounded-lg object-cover" />
+          ) : (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={preview} alt="Upload preview" className="max-h-64 w-full rounded-lg object-cover" />
+          )}
           <Button
             size="icon-sm"
             variant="secondary"
-            className="absolute right-6 top-6"
-            onClick={() => setPreview(null)}
+            className="absolute right-6 top-6 z-10"
+            onClick={() => {
+              setPreview(null);
+              setFileType(null);
+            }}
           >
             <X className="h-4 w-4" />
           </Button>
@@ -69,7 +77,7 @@ export function UploadBox({ onUpload, accept = "image/*", loading, className }: 
           </div>
           <div className="text-center">
             <p className="font-medium">Drop drone footage here</p>
-            <p className="mt-1 text-sm text-muted-foreground">PNG, JPG up to 10MB</p>
+            <p className="mt-1 text-sm text-muted-foreground">Images & Videos up to 50MB</p>
           </div>
           <input
             type="file"

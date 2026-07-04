@@ -50,12 +50,19 @@ export const api = {
   classifyRisk: (scenario: Record<string, unknown>) =>
     request("/api/ai/classify-risk", { method: "POST", body: JSON.stringify({ scenario }) }),
 
-  analyzeImage: (file: File) => {
+  analyzeImage: (file?: File, sample?: string, model = "yolo11n") => {
     const form = new FormData();
-    form.append("file", file);
-    return request<{ filename: string; analysis: VisionAnalysis }>("/api/vision/analyze", {
+    if (file) {
+      form.append("file", file);
+    }
+    const params = new URLSearchParams();
+    params.append("model", model);
+    if (sample) {
+      params.append("sample", sample);
+    }
+    return request<{ filename: string; analysis: VisionAnalysis }>(`/api/vision/analyze?${params.toString()}`, {
       method: "POST",
-      body: form,
+      body: file ? form : undefined,
     });
   },
 
@@ -76,6 +83,9 @@ export interface VisionAnalysis {
   victim_estimate: number;
   safe_landing_zones: Array<{ name: string; lat: number; lng: number; score: number }>;
   priority_areas: Array<{ name: string; priority: number; reason: string }>;
+  annotated_url?: string;
+  is_video?: boolean;
+  model_used?: string;
 }
 
 export interface WeatherData {
