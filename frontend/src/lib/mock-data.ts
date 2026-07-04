@@ -147,7 +147,5 @@ export const NAV_ITEMS = [
   { href: "/search", label: "Aircraft Search", icon: "Plane" },
   { href: "/drones", label: "Drone Intel", icon: "Drone" },
   { href: "/wearables", label: "Wearables", icon: "HeartPulse" },
-  { href: "/planner", label: "AI Planner", icon: "Brain" },
   { href: "/resources", label: "Resources", icon: "Truck" },
-  { href: "/routing", label: "Tactical Routing", icon: "Navigation" },
 ];

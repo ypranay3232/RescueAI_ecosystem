@@ -30,6 +30,17 @@ async def analyze_text(req: TextAnalysisRequest):
     return await ai_service.analyze_text(req.prompt, req.context)
 
 
+class ChatRequest(BaseModel):
+    prompt: str
+    context: str = ""
+
+
+@router.post("/chat")
+async def chat(req: ChatRequest):
+    reply = await ai_service.chat(req.prompt, req.context)
+    return {"reply": reply}
+
+
 @router.post("/recommend")
 async def recommend(req: ScenarioRequest):
     return await ai_service.generate_recommendation(req.scenario)
@@ -58,4 +69,20 @@ class EvacuationPlanRequest(BaseModel):
 @router.post("/evacuation-plan")
 async def evacuation_plan(req: EvacuationPlanRequest):
     return await ai_service.generate_evacuation_plan(req.model_dump())
+
+
+class CrashResponsePlanRequest(BaseModel):
+    aircraft_type: str
+    people_onboard: int
+    last_known_lat: float
+    last_known_lng: float
+    terrain: str
+    weather: str = "clear"
+    wearable_survivors: list = Field(default_factory=list)
+
+
+@router.post("/crash-response-plan")
+async def crash_response_plan(req: CrashResponsePlanRequest):
+    return await ai_service.generate_crash_response_plan(req.model_dump())
+
 
