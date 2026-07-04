@@ -20,6 +20,7 @@ const NAV_DESCRIPTIONS: Record<string, string> = {
   "/search":    "Find & rescue",
   "/drones":    "UAV control",
   "/wearables": "Vitals",
+  "/routing":   "Detour planner",
   "/resources": "Assets",
 };
 
