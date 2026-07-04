@@ -59,11 +59,49 @@ class AIService:
         )
         return await self.analyze_text(prompt, str(data))
 
+    async def generate_crash_response_plan(self, data: dict[str, Any]) -> dict[str, Any]:
+        prompt = (
+            "You are a RescueOS Tactical AI command agent. Given details of an aircraft crash "
+            "(aircraft type, occupants onboard, last known GPS coordinates, terrain, weather, and nearby detected survivor wearables), "
+            "generate a high-fidelity tactical emergency response plan. "
+            "Return JSON with keys exactly matching:\n"
+            "summary (string summarizing the event response protocol),\n"
+            "risk_assessment (string detailing environmental risks),\n"
+            "steps (list of step objects. Each step must contain:\n"
+            "  - step_number (int)\n"
+            "  - title (string)\n"
+            "  - description (string details)\n"
+            "  - action_type (string, one of: 'alert_services', 'dispatch_survivors', 'allocate_resources')\n"
+            "  - target_agencies (list of strings like ['Police', 'Hospital', 'Fire Station'], only for alert_services action)\n"
+            "  - routes (list of objects with keys: survivor_name, id, vitals, lat, lng, eta_minutes, assets (list of strings), only for dispatch_survivors action)\n"
+            "  - supplies_allocated (list of objects with keys: item, qty (int), calculation (string showing how qty is derived from people onboard), status ('critical_need'|'needed'|'adequate'), only for allocate_resources action)\n"
+            ")"
+        )
+        return await self.analyze_text(prompt, str(data))
+
+    async def chat(self, prompt: str, context: str = "") -> str:
+        system_prompt = (
+            "You are the RescueOS AI Dispatch Co-Pilot. Keep replies extremely concise, clear, and focused on tactical utility. "
+            "Help the operator triage incidents, calculate resources, or configure staging boundaries. "
+            "Directly answer the user's questions."
+        )
+        full_prompt = f"{system_prompt}\n\nContext:\n{context}\n\nUser: {prompt}\nRescueOS Assistant:"
+        result = await self._complete(full_prompt, json_mode=False)
+        return result if isinstance(result, str) else str(result)
+
     async def _complete(self, prompt: str, json_mode: bool = True) -> Any:
         if settings.ai_provider == "gemini" and settings.gemini_api_key:
-            return await self._gemini_complete(prompt, json_mode)
+            try:
+                return await self._gemini_complete(prompt, json_mode)
+            except Exception as e:
+                import sys
+                print(f"Gemini API Error: {e}. Falling back to mocks.", file=sys.stderr)
         if settings.openai_api_key:
-            return await self._openai_complete(prompt, json_mode)
+            try:
+                return await self._openai_complete(prompt, json_mode)
+            except Exception as e:
+                import sys
+                print(f"OpenAI API Error: {e}. Falling back to mocks.", file=sys.stderr)
         return self._mock_text_response(prompt, json_mode)
 
     async def _openai_complete(self, prompt: str, json_mode: bool) -> Any:
@@ -143,6 +181,93 @@ class AIService:
     def _mock_text_response(self, prompt: str, json_mode: bool) -> Any:
         if not json_mode:
             return "Mock AI summary — configure OPENAI_API_KEY or GEMINI_API_KEY for live responses."
+
+        if "tactical" in prompt.lower() or "step_number" in prompt.lower():
+            # parse values from prompt string
+            import re
+            people = 50
+            aircraft = "Passenger Commercial Jet"
+            terrain = "dense forest"
+            weather = "stormy"
+            lat = 34.152
+            lng = -118.243
+            
+            people_match = re.search(r"'people_onboard':\s*(\d+)", prompt)
+            if people_match:
+                people = int(people_match.group(1))
+                
+            aircraft_match = re.search(r"'aircraft_type':\s*'([^']+)'", prompt)
+            if aircraft_match:
+                aircraft = aircraft_match.group(1)
+                
+            terrain_match = re.search(r"'terrain':\s*'([^']+)'", prompt)
+            if terrain_match:
+                terrain = terrain_match.group(1)
+                
+            weather_match = re.search(r"'weather':\s*'([^']+)'", prompt)
+            if weather_match:
+                weather = weather_match.group(1)
+
+            lat_match = re.search(r"'last_known_lat':\s*([-\d.]+)", prompt)
+            if lat_match:
+                lat = float(lat_match.group(1))
+
+            lng_match = re.search(r"'last_known_lng':\s*([-\d.]+)", prompt)
+            if lng_match:
+                lng = float(lng_match.group(1))
+
+            return {
+                "summary": f"Immediate emergency response protocol initiated for {aircraft} crash in {terrain}. Staging local rescue assets.",
+                "risk_assessment": f"High risk of exposure/hazards due to {terrain} terrain and {weather} weather. Target immediate rescue coordinate sectors.",
+                "steps": [
+                    {
+                        "step_number": 1,
+                        "title": "Alert Emergency Services",
+                        "description": f"Broadcast coordinates ({lat:.4f}, {lng:.4f}) and passenger count ({people}) to Police, Trauma Hospitals, and Fire Stations.",
+                        "action_type": "alert_services",
+                        "target_agencies": ["Police Department", "Trauma Hospital", "Fire Station 14"],
+                        "eta_minutes": 1
+                    },
+                    {
+                        "step_number": 2,
+                        "title": "Dispatch to Wearable Signals",
+                        "description": "Scan and stage emergency vehicles to coordinates of active survivor wearable signals.",
+                        "action_type": "dispatch_survivors",
+                        "routes": [
+                            {
+                                "survivor_name": "Survivor Gamma",
+                                "id": "W3",
+                                "vitals": "Critical Status (HR: 118, SpO2: 89%)",
+                                "lat": 34.148,
+                                "lng": -118.261,
+                                "eta_minutes": 8,
+                                "assets": ["Ambulance Beta", "Rescue Team Bravo"]
+                            },
+                            {
+                                "survivor_name": "Survivor Alpha",
+                                "id": "W1",
+                                "vitals": "Warning Status (HR: 98, SpO2: 94%)",
+                                "lat": 34.159,
+                                "lng": -118.237,
+                                "eta_minutes": 15,
+                                "assets": ["Ambulance Alpha"]
+                            }
+                        ]
+                    },
+                    {
+                        "step_number": 3,
+                        "title": "Resource Allocation & Supply Planning",
+                        "description": f"Calculate and schedule food, water, medical packs, and blankets based on {people} estimated occupants.",
+                        "action_type": "allocate_resources",
+                        "supplies_allocated": [
+                            {"item": "Water (Liters)", "qty": people * 3, "calculation": f"3 liters/person * {people} occupants for Day 1", "status": "critical_need" if people > 50 else "needed"},
+                            {"item": "Food Rations", "qty": people * 2, "calculation": f"2 packs/person * {people} occupants for Day 1", "status": "needed"},
+                            {"item": "Medical Kits", "qty": max(1, people // 2), "calculation": f"1 kit per 2 occupants estimated ({people} people)", "status": "critical_need" if people > 30 else "adequate"},
+                            {"item": "Thermal Blankets", "qty": people, "calculation": f"1 blanket/person due to night temperature drop", "status": "needed"}
+                        ]
+                    }
+                ]
+            }
 
         if "search zone" in prompt.lower() or "crash" in prompt.lower():
             return {

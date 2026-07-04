@@ -6,13 +6,13 @@ import { useEffect, useRef } from "react";
 import { gsap } from "gsap";
 import {
   Brain, HeartPulse, LayoutDashboard, Plane, Radio, Truck,
-  Wifi, Shield, Activity, Navigation,
+  Wifi, Shield, Activity, Flame,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { NAV_ITEMS } from "@/lib/mock-data";
 
 const iconMap: Record<string, React.ComponentType<{ className?: string; style?: React.CSSProperties }>> = {
-  LayoutDashboard, Plane, Drone: Radio, HeartPulse, Brain, Truck, Navigation,
+  LayoutDashboard, Plane, Drone: Radio, HeartPulse, Brain, Truck, Flame,
 };
 
 const NAV_DESCRIPTIONS: Record<string, string> = {
@@ -20,9 +20,7 @@ const NAV_DESCRIPTIONS: Record<string, string> = {
   "/search":    "Find & rescue",
   "/drones":    "UAV control",
   "/wearables": "Vitals",
-  "/planner":   "AI tactics",
   "/resources": "Assets",
-  "/routing":   "Safe paths",
 };
 
 export function AppSidebar() {
