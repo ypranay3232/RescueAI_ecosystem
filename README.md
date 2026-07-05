@@ -2,6 +2,9 @@
 
 Reusable emergency response platform template for hackathons. Built with **Next.js**, **FastAPI**, and generic **AI wrappers** — swap prompts and modules per problem statement.
 
+🚀 **Live Demo:** [https://rescue-ai-ecosystem.vercel.app/](https://rescue-ai-ecosystem.vercel.app/)
+
+
 ## Features
 
 - **Flight Search & Rescue** - Real-time aircraft tracking with signal loss simulation
