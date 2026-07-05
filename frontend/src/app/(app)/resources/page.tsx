@@ -212,7 +212,10 @@ function ResourcesPageContent() {
   const [isPlayingAudio, setIsPlayingAudio] = useState(false);
 
   useEffect(() => {
-    api.resources().then(setData).catch(() => {});
+    api.resources().then(setData).catch((err) => {
+      console.error('Failed to fetch resources:', err);
+      toast.error('Failed to connect to backend API. Using local state.');
+    });
   }, []);
 
   const refreshNecessities = useCallback(async (lat: number, lng: number, rad: number) => {
@@ -224,14 +227,20 @@ function ResourcesPageContent() {
       setNecessities(items);
 
       // 2. Fetch real-world weather metrics
-      const weatherData = await api.weather(lat, lng);
-      setWeather(weatherData);
+      try {
+        const weatherData = await api.weather(lat, lng);
+        setWeather(weatherData);
+      } catch (weatherErr) {
+        console.error('Weather fetch failed:', weatherErr);
+        toast.warning('Weather service unavailable, using cached data');
+      }
 
       setAiPlan(null);
       setIsSimulating(false);
       setDispatchedIds(new Set());
       setSimStats({ evacuated: 0, waterDelivered: 0, foodDelivered: 0, volunteersActive: 0 });
-    } catch {
+    } catch (err) {
+      console.error('Failed to refresh necessities:', err);
       toast.error("Failed to retrieve routing or weather services.");
     } finally {
       setLoadingNecessities(false);

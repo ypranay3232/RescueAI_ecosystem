@@ -201,9 +201,81 @@ Keep the infrastructure. Swap the innovation.
 - **White screen during flight**: This is normal for long-distance flights. The map auto-fits to show the full route.
 - **Flickering**: Ensure you have a stable internet connection for map tiles.
 
-## Deployment
+## Production Deployment
 
-### GitHub Setup
+### Environment Variables Configuration
+
+**Backend (Render/.env):**
+```env
+# AI Provider Configuration (Optional - works with mock data without keys)
+OPENAI_API_KEY=sk-...
+GEMINI_API_KEY=...
+AI_PROVIDER=openai  # or gemini
+
+# API Configuration
+API_HOST=localhost
+API_PORT=8000
+
+# CORS Configuration - Add your Vercel domain here
+CORS_ORIGINS=http://localhost:3000,https://your-vercel-app.vercel.app
+```
+
+**Frontend (Vercel Environment Variables):**
+```env
+# Backend API URL - Use your Render backend URL
+NEXT_PUBLIC_API_URL=https://your-render-app.onrender.com
+
+# Optional: Map Tile Provider
+NEXT_PUBLIC_MAP_TILE_PROVIDER=dark
+```
+
+### Deployment Steps
+
+**1. Backend Deployment (Render):**
+- Create a new Web Service on Render
+- Connect your GitHub repository
+- Set build command: `cd backend && pip install -r requirements.txt`
+- Set start command: `cd backend && uvicorn app.main:app --host 0.0.0.0 --port $PORT`
+- Add environment variables from above
+- **Important**: Update `CORS_ORIGINS` to include your Vercel frontend URL
+
+**2. Frontend Deployment (Vercel):**
+- Create a new project on Vercel
+- Import your GitHub repository
+- Set root directory: `frontend`
+- Add `NEXT_PUBLIC_API_URL` environment variable pointing to your Render backend
+- Deploy
+
+**3. Post-Deployment Checklist:**
+- [ ] Backend CORS includes your Vercel domain
+- [ ] Frontend `NEXT_PUBLIC_API_URL` points to correct backend URL
+- [ ] Test API health endpoint: `https://your-backend.onrender.com/api/health`
+- [ ] Test drone image upload feature
+- [ ] Test resources management feature
+- [ ] Check browser console for any CORS errors
+
+### Troubleshooting Production Issues
+
+**CORS Errors:**
+- If you see CORS errors in browser console, update `CORS_ORIGINS` in backend environment variables
+- Format: `http://localhost:3000,https://your-app.vercel.app` (comma-separated, no spaces)
+
+**API Connection Failures:**
+- Verify `NEXT_PUBLIC_API_URL` is set correctly in Vercel
+- Check backend is running and accessible
+- Test backend health endpoint directly
+
+**Image Upload Issues:**
+- Ensure backend has sufficient storage for uploads
+- Check file size limits in both frontend and backend
+- Verify multipart form data is being sent correctly
+
+**AI API Limit Errors:**
+- The app gracefully handles API limit errors by falling back to mock data
+- Users will see error messages but the app remains functional
+- Consider upgrading API plans for production use
+
+## GitHub Setup
 
 1. **Initialize Git Repository** (if not already done):
 ```bash

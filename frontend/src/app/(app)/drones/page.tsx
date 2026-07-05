@@ -37,13 +37,19 @@ export default function DronesPage() {
   const [analysis, setAnalysis] = useState<VisionAnalysis | null>(null);
   const [selectedModel, setSelectedModel] = useState<string>("yolo11n");
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const handleUpload = async (file: File) => {
     setLoading(true);
+    setError(null);
     try {
       const result = await api.analyzeImage(file, undefined, selectedModel);
       setAnalysis(result.analysis);
-    } catch {
+    } catch (err) {
+      console.error('Analysis failed:', err);
+      const errorMessage = err instanceof Error ? err.message : 'Failed to analyze image';
+      setError(errorMessage);
+      // Fall back to mock data on error
       setAnalysis(MOCK_ANALYSIS);
     } finally {
       setLoading(false);
@@ -52,10 +58,15 @@ export default function DronesPage() {
 
   const handleSampleAnalyze = async (sampleName: string) => {
     setLoading(true);
+    setError(null);
     try {
       const result = await api.analyzeImage(undefined, sampleName, selectedModel);
       setAnalysis(result.analysis);
-    } catch {
+    } catch (err) {
+      console.error('Sample analysis failed:', err);
+      const errorMessage = err instanceof Error ? err.message : 'Failed to analyze sample';
+      setError(errorMessage);
+      // Fall back to mock data on error
       setAnalysis(MOCK_ANALYSIS);
     } finally {
       setLoading(false);
@@ -76,6 +87,13 @@ export default function DronesPage() {
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
                 <Loader2 className="h-4 w-4 animate-spin text-orange-500" />
                 Analyzing imagery with YOLO...
+              </div>
+            )}
+            {error && (
+              <div className="rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-400">
+                <p className="font-medium">Analysis Error</p>
+                <p className="text-xs opacity-80">{error}</p>
+                <p className="text-xs mt-1 opacity-60">Showing mock data instead</p>
               </div>
             )}
 

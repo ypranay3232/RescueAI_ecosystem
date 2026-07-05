@@ -1,15 +1,29 @@
 export const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
-  const res = await fetch(`${API_BASE}${path}`, {
-    ...options,
-    headers: {
-      ...(options?.body instanceof FormData ? {} : { "Content-Type": "application/json" }),
-      ...options?.headers,
-    },
-  });
-  if (!res.ok) throw new Error(`API error: ${res.status}`);
-  return res.json();
+  try {
+    const res = await fetch(`${API_BASE}${path}`, {
+      ...options,
+      headers: {
+        ...(options?.body instanceof FormData ? {} : { "Content-Type": "application/json" }),
+        ...options?.headers,
+      },
+    });
+    
+    if (!res.ok) {
+      const errorText = await res.text();
+      console.error(`API error: ${res.status}`, errorText);
+      throw new Error(`API error: ${res.status} - ${errorText || res.statusText}`);
+    }
+    
+    return res.json();
+  } catch (error) {
+    console.error('Request failed:', error);
+    if (error instanceof Error) {
+      throw error;
+    }
+    throw new Error('Network request failed');
+  }
 }
 
 export interface RecommendationResponse {

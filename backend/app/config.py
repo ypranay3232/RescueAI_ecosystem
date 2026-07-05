@@ -9,7 +9,7 @@ class Settings(BaseSettings):
     xai_api_key: str = ""
     ai_provider: str = "openai"
     openweather_api_key: str = ""
-    cors_origins: str = "http://localhost:3000"
+    cors_origins: str = "http://localhost:3000,https://rescue-ai-ecosystem.vercel.app"
     upload_dir: str = "uploads"
 
     @property
