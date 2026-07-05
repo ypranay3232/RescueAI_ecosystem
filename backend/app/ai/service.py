@@ -12,7 +12,7 @@ class AIService:
 
     async def analyze_image(self, image_path: str, prompt: str) -> dict[str, Any]:
         # Simulated detections when no API key; real vision when configured
-        if not settings.openai_api_key and not settings.gemini_api_key:
+        if not settings.openai_api_key and not settings.gemini_api_key and not settings.xai_api_key:
             return self._mock_vision_analysis()
         return await self._vision(image_path, prompt)
 
@@ -90,6 +90,12 @@ class AIService:
         return result if isinstance(result, str) else str(result)
 
     async def _complete(self, prompt: str, json_mode: bool = True) -> Any:
+        if settings.ai_provider == "xai" and settings.xai_api_key:
+            try:
+                return await self._xai_complete(prompt, json_mode)
+            except Exception as e:
+                import sys
+                print(f"xAI API Error: {e}. Falling back to mocks.", file=sys.stderr)
         if settings.ai_provider == "gemini" and settings.gemini_api_key:
             try:
                 return await self._gemini_complete(prompt, json_mode)
@@ -103,6 +109,30 @@ class AIService:
                 import sys
                 print(f"OpenAI API Error: {e}. Falling back to mocks.", file=sys.stderr)
         return self._mock_text_response(prompt, json_mode)
+
+    async def _xai_complete(self, prompt: str, json_mode: bool) -> Any:
+        import json
+        import httpx
+
+        body: dict[str, Any] = {
+            "model": "grok-2",
+            "messages": [{"role": "user", "content": prompt}],
+        }
+        if json_mode:
+            body["response_format"] = {"type": "json_object"}
+
+        async with httpx.AsyncClient(timeout=60) as client:
+            resp = await client.post(
+                "https://api.x.ai/v1/chat/completions",
+                headers={"Authorization": f"Bearer {settings.xai_api_key}"},
+                json=body,
+            )
+            if resp.status_code != 200:
+                import sys
+                print(f"xAI API response error: {resp.status_code} - {resp.text}", file=sys.stderr)
+            resp.raise_for_status()
+            content = resp.json()["choices"][0]["message"]["content"]
+            return json.loads(content) if json_mode else content
 
     async def _openai_complete(self, prompt: str, json_mode: bool) -> Any:
         import json
@@ -152,12 +182,21 @@ class AIService:
         with open(image_path, "rb") as f:
             b64 = base64.b64encode(f.read()).decode()
 
+        if settings.ai_provider == "xai" and settings.xai_api_key:
+            url = "https://api.x.ai/v1/chat/completions"
+            headers = {"Authorization": f"Bearer {settings.xai_api_key}"}
+            model = "grok-vision-beta"
+        else:
+            url = "https://api.openai.com/v1/chat/completions"
+            headers = {"Authorization": f"Bearer {settings.openai_api_key}"}
+            model = "gpt-4o-mini"
+
         async with httpx.AsyncClient(timeout=90) as client:
             resp = await client.post(
-                "https://api.openai.com/v1/chat/completions",
-                headers={"Authorization": f"Bearer {settings.openai_api_key}"},
+                url,
+                headers=headers,
                 json={
-                    "model": "gpt-4o-mini",
+                    "model": model,
                     "response_format": {"type": "json_object"},
                     "messages": [
                         {
@@ -180,7 +219,8 @@ class AIService:
 
     def _mock_text_response(self, prompt: str, json_mode: bool) -> Any:
         if not json_mode:
-            return "Mock AI summary — configure OPENAI_API_KEY or GEMINI_API_KEY for live responses."
+            return "Mock AI summary — configure XAI_API_KEY, OPENAI_API_KEY, or GEMINI_API_KEY for live responses."
+
 
         if "tactical" in prompt.lower() or "step_number" in prompt.lower():
             # parse values from prompt string

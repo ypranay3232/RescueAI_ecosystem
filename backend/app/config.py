@@ -6,6 +6,7 @@ class Settings(BaseSettings):
 
     openai_api_key: str = ""
     gemini_api_key: str = ""
+    xai_api_key: str = ""
     ai_provider: str = "openai"
     openweather_api_key: str = ""
     cors_origins: str = "http://localhost:3000"

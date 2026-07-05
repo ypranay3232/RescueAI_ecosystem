@@ -165,7 +165,7 @@ export function FloatingChat() {
     setLoading(true);
 
     // Determine current plan type based on Pathname & sandbox state
-    let planType: ChatMessage["planData"]["planType"] = "general";
+    let planType: any = "general";
     
     if (pathname === "/search") {
       planType = "aircraft";
@@ -388,7 +388,7 @@ export function FloatingChat() {
                             <Label className="text-[10px] font-semibold text-muted-foreground uppercase">Aircraft Model</Label>
                             <Select
                               value={activePlanParams.aircraftType}
-                              onValueChange={(val) => setActivePlanParams(p => ({ ...p, aircraftType: val }))}
+                              onValueChange={(val) => setActivePlanParams(p => ({ ...p, aircraftType: val || "" }))}
                             >
                               <SelectTrigger className="h-8 bg-background/50">
                                 <SelectValue />
@@ -416,7 +416,7 @@ export function FloatingChat() {
                               <Label className="text-[10px] font-semibold text-muted-foreground uppercase">Terrain</Label>
                               <Select
                                 value={activePlanParams.terrain}
-                                onValueChange={(val) => setActivePlanParams(p => ({ ...p, terrain: val }))}
+                                onValueChange={(val) => setActivePlanParams(p => ({ ...p, terrain: val || "" }))}
                               >
                                 <SelectTrigger className="h-8 bg-background/50">
                                   <SelectValue />

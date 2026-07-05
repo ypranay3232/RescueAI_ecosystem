@@ -64,7 +64,7 @@ async def analyze_image(
     # Combine YOLO detections with AI analysis for additional context
     # If AI keys are available, get additional analysis
     is_video = yolo_result.get("is_video", False)
-    if settings.openai_api_key or settings.gemini_api_key:
+    if settings.openai_api_key or settings.gemini_api_key or settings.xai_api_key:
         if not is_video:
             try:
                 ai_result = await ai_service.analyze_image(path, VISION_PROMPT)

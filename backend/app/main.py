@@ -40,4 +40,5 @@ app.include_router(obstacles.router, prefix="/api")
 
 @app.get("/api/health")
 async def health():
-    return {"status": "ok", "ai_configured": bool(settings.openai_api_key or settings.gemini_api_key)}
+    return {"status": "ok", "ai_configured": bool(settings.openai_api_key or settings.gemini_api_key or settings.xai_api_key)}
+
