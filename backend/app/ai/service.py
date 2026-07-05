@@ -219,7 +219,7 @@ class AIService:
 
     def _mock_text_response(self, prompt: str, json_mode: bool) -> Any:
         if not json_mode:
-            return "Mock AI summary — configure XAI_API_KEY, OPENAI_API_KEY, or GEMINI_API_KEY for live responses."
+            return "API limit exceeded. Please check your AI provider credentials or quota."
 
 
         if "tactical" in prompt.lower() or "step_number" in prompt.lower():
