@@ -23,7 +23,9 @@ app.add_middleware(
 # Resolve absolute paths and mount static directories
 backend_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 upload_path = os.path.join(backend_dir, settings.upload_dir)
-content_path = os.path.join(os.path.dirname(backend_dir), "content")
+content_path = os.path.join(backend_dir, "content")
+if not os.path.exists(content_path):
+    content_path = os.path.join(os.path.dirname(backend_dir), "content")
 
 os.makedirs(upload_path, exist_ok=True)
 

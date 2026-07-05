@@ -28,8 +28,11 @@ class YOLODetector:
     def get_model(self, model_name: str) -> YOLO:
         """Get or load a cached YOLO model by name."""
         if model_name not in self.models:
-            project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
-            model_path = os.path.join(project_root, "content", f"{model_name}.pt")
+            backend_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+            model_path = os.path.join(backend_dir, "content", f"{model_name}.pt")
+            if not os.path.exists(model_path):
+                project_root = os.path.dirname(backend_dir)
+                model_path = os.path.join(project_root, "content", f"{model_name}.pt")
             self.models[model_name] = YOLO(model_path)
         return self.models[model_name]
         

@@ -34,8 +34,11 @@ async def analyze_image(
         if sample not in ["images.jpg", "imagess.jpg"]:
             raise HTTPException(status_code=400, detail="Invalid sample image")
         
-        project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
-        source_path = os.path.join(project_root, "content", sample)
+        backend_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        source_path = os.path.join(backend_dir, "content", sample)
+        if not os.path.exists(source_path):
+            project_root = os.path.dirname(backend_dir)
+            source_path = os.path.join(project_root, "content", sample)
         
         if not os.path.exists(source_path):
             raise HTTPException(status_code=404, detail="Sample image not found")
